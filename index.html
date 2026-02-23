@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PetPetDoc | 專業寵物醫療格價與地圖</title>
+    <title>PetPetDoc | 智能寵物醫療導航</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -11,129 +11,152 @@
     
     <style>
         body { font-family: 'Noto Sans HK', sans-serif; background-color: #FFF9F2; }
-        .hero-gradient { background: linear-gradient(135deg, #FFB347 0%, #FFCC33 100%); }
-        #map { height: 450px; width: 100%; border-radius: 20px; z-index: 10; border: 4px solid white; }
+        #map { height: 450px; width: 100%; border-radius: 24px; z-index: 10; border: 4px solid white; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         .custom-div-icon { background: none; border: none; }
-        /* 手機端按鈕陰影優化 */
-        .btn-shadow { box-shadow: 0 4px 14px 0 rgba(251, 146, 60, 0.39); }
+        .tab-active { border-bottom: 4px solid #f97316; color: #f97316; }
+        
+        /* 搜尋列表 App 化 */
+        .search-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(251, 146, 60, 0.2);
+        }
+        
+        /* GPS 按鈕動畫 */
+        .gps-btn {
+            position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background: white; width: 50px; height: 50px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: none; cursor: pointer;
+        }
     </style>
 </head>
-<body class="pb-10">
+<body class="pb-20">
 
-    <nav class="sticky top-0 z-50 p-4 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-6">
+    <nav class="sticky top-0 z-50 p-4 bg-white/90 backdrop-blur-md shadow-sm flex justify-between items-center px-6">
         <div class="text-2xl font-bold text-orange-500 flex items-center">
             <span class="text-3xl mr-2">🐾</span> PetPetDoc
         </div>
-        <button class="bg-orange-500 text-white px-5 py-2 rounded-full font-bold text-sm btn-shadow">註冊</button>
+        <button onclick="showSection('price-section')" class="bg-orange-500 text-white px-4 py-2 rounded-full font-bold text-xs">上傳單據</button>
     </nav>
 
-    <header class="hero-gradient py-12 px-6 text-center text-white">
-        <h1 class="text-3xl md:text-5xl font-bold mb-4">幫主子搵到最好嘅 🐾</h1>
-        <p class="text-lg mb-8 opacity-90">全港 24hr 急症及醫療格價指南</p>
-        
-        <div class="max-w-xl mx-auto bg-white rounded-3xl p-5 shadow-xl text-gray-800">
-            <div class="flex flex-col gap-3">
-                <select id="serviceSelect" class="w-full p-4 border-2 border-orange-100 rounded-2xl focus:outline-none focus:border-orange-500 bg-white text-gray-700">
-                    <option value="0">🔍 選擇醫療服務格價...</option>
-                    <option value="280">年度入針 (5合1/7合1)</option>
-                    <option value="1200">貓咪絕育 (公)</option>
-                    <option value="1800">貓咪絕育 (乸)</option>
-                    <option value="2500">超聲波洗牙 (基本)</option>
-                    <option value="450">基本體檢 (Body Check)</option>
-                </select>
-                <button onclick="checkPrice()" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-600 transition btn-shadow">
-                    查詢參考價
-                </button>
-            </div>
-            <div id="priceResult" class="mt-4 hidden p-4 bg-orange-50 rounded-2xl border border-orange-200 animate-pulse">
-                <p class="text-gray-500 text-sm">平均市價約：</p>
-                <p id="priceValue" class="text-3xl font-bold text-orange-600 mt-1"></p>
-            </div>
-        </div>
-    </header>
+    <div class="flex justify-around bg-white border-b sticky top-[72px] z-40 text-sm">
+        <button id="btn-map" onclick="showSection('map-section')" class="py-4 px-4 font-bold tab-active">地圖搜尋</button>
+        <button id="btn-price" onclick="showSection('price-section')" class="py-4 px-4 font-bold text-gray-400">格價助手</button>
+        <button id="btn-deals" onclick="showSection('deals-section')" class="py-4 px-4 font-bold text-gray-400">主子著數</button>
+    </div>
 
-    <section class="max-w-6xl mx-auto py-10 px-6">
-        <div class="flex justify-between items-end mb-6">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-800">📍 診所分佈地圖</h2>
-                <p class="text-gray-500 text-sm">🚨 為急症/24小時 | 🏥 為一般診所</p>
-            </div>
+    <section id="map-section" class="section-part p-6">
+        <div class="mb-4 relative">
+            <input type="text" id="searchInput" onkeyup="searchClinic()" placeholder="輸入診所名或地區 (如：旺角)..." 
+                class="w-full p-4 pl-12 rounded-2xl border-2 border-orange-100 focus:border-orange-500 outline-none shadow-sm">
+            <span class="absolute left-4 top-4">🔍</span>
+            
+            <div id="searchResults" class="absolute w-full mt-2 rounded-2xl shadow-2xl max-h-64 overflow-y-auto hidden z-[2000] search-glass"></div>
         </div>
         
-        <div id="map" class="shadow-2xl"></div>
+        <div class="relative">
+            <div id="map"></div>
+            <button onclick="locateUser()" class="gps-btn text-orange-500 hover:text-orange-600 transition">
+                <span style="font-size: 24px;">🎯</span>
+            </button>
+        </div>
     </section>
 
-    <footer class="max-w-6xl mx-auto px-6 mt-4">
-        <div class="bg-gray-100 p-6 rounded-3xl text-center">
-            <p class="text-gray-500 text-sm">想加入你的診所？請電郵至 hello@petpetdoc.hk</p>
-            <p class="text-xs text-gray-400 mt-4">© 2026 PetPetDoc HK. 專業・愛心・透明</p>
+    <section id="price-section" class="section-part p-6 hidden">
+        <div class="bg-white rounded-3xl p-6 shadow-lg border border-orange-50">
+            <h2 class="text-xl font-bold mb-4 text-orange-600">📊 公價參考</h2>
+            <select id="serviceSelect" onchange="checkPrice()" class="w-full p-4 border-2 border-orange-100 rounded-2xl mb-4 bg-white">
+                <option value="0">請選擇項目</option>
+                <option value="280">年度入針</option>
+                <option value="1200">貓咪絕育 (公)</option>
+                <option value="2500">基本洗牙</option>
+            </select>
+            <div id="priceDisplay" class="text-center p-8 bg-orange-50 rounded-2xl hidden">
+                <p class="text-gray-500">平均市價</p>
+                <p id="priceValue" class="text-4xl font-bold text-orange-600 my-2"></p>
+            </div>
         </div>
-    </footer>
+    </section>
+
+    <section id="deals-section" class="section-part p-6 hidden">
+        <h2 class="text-2xl font-bold mb-6 font-bold">🎁 限時著數</h2>
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-orange-100 flex justify-between items-center mb-4">
+            <div><h4 class="font-bold">皇家貓糧 $50 優惠</h4><p class="text-xs text-gray-400">全港超市適用</p></div>
+            <button class="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-bold">領取</button>
+        </div>
+    </section>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // --- 格價功能 ---
-        function checkPrice() {
-            const price = document.getElementById('serviceSelect').value;
-            const resultDiv = document.getElementById('priceResult');
-            const priceText = document.getElementById('priceValue');
-            
-            if (price !== "0") {
-                priceText.innerText = "HK$ " + price;
-                resultDiv.classList.remove('hidden');
-                // 震動效果 (手機支援的話)
-                if (window.navigator.vibrate) window.navigator.vibrate(50);
-            } else {
-                alert("請先選擇服務項目呀！");
-            }
-        }
-
-        // --- 地圖邏輯 ---
-        var map = L.map('map').setView([22.3193, 114.1694], 11);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-
-        // 診所數據庫
         const clinics = [
             { name: "香港社企動物醫院", lat: 22.3238, lng: 114.1700, is24hr: true, address: "旺角水渠道44號" },
             { name: "Paws & Tails 寵物醫院", lat: 22.2855, lng: 114.1473, is24hr: false, address: "上環普仁街4號" },
             { name: "The Pet Vet", lat: 22.2769, lng: 114.1713, is24hr: false, address: "灣仔露亞道5號" },
-            { name: "港島獸醫診所", lat: 22.2690, lng: 114.1850, is24hr: false, address: "跑馬地成和道67號" },
-            { name: "維多利亞 24小時動物醫院", lat: 22.3031, lng: 114.1815, is24hr: true, address: "紅磡黃埔花園" },
-            { name: "康誠動物醫院", lat: 22.3650, lng: 114.1200, is24hr: false, address: "葵涌廣場附近" }
+            { name: "維多利亞 24小時醫院", lat: 22.3031, lng: 114.1815, is24hr: true, address: "紅磡黃埔花園" }
         ];
 
-        // 根據屬性自動生成 Icon
+        // 1. 初始化地圖 (鎖定香港)
+        const hkBounds = [[22.15, 113.8], [22.58, 114.4]];
+        var map = L.map('map', { zoomControl: false, maxBounds: hkBounds, minZoom: 10 }).setView([22.3193, 114.1694], 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        // 2. 放置 Marker
         clinics.forEach(clinic => {
-            const iconSymbol = clinic.is24hr ? "🚨" : "🏥";
-            const statusTag = clinic.is24hr ? 
-                `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">24HR 急症</span>` : 
-                `<span style="background:#f0f9ff;color:#0ea5e9;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">一般門診</span>`;
-
-            var customIcon = L.divIcon({
-                html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.1));">${iconSymbol}</div>`,
-                className: 'custom-div-icon',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
-            });
-
-            L.marker([clinic.lat, clinic.lng], { icon: customIcon })
-                .addTo(map)
-                .bindPopup(`
-                    <div style="min-width:150px;">
-                        <div style="margin-bottom:5px;">${statusTag}</div>
-                        <h3 style="margin:0; font-size:14px; font-weight:bold;">${clinic.name}</h3>
-                        <p style="margin:5px 0; font-size:12px; color: #666;">📍 ${clinic.address}</p>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination=${clinic.lat},${clinic.lng}" 
-                           target="_blank" 
-                           style="display:block; text-align:center; margin-top:8px; padding:8px; background:#f97316; color:white; border-radius:10px; text-decoration:none; font-size:12px; font-weight:bold;">
-                           導航去醫院
-                        </a>
-                    </div>
-                `);
+            const icon = clinic.is24hr ? "🚨" : "🏥";
+            var m = L.marker([clinic.lat, clinic.lng], {
+                icon: L.divIcon({ html: `<div style="font-size: 28px;">${icon}</div>`, className: 'custom-div-icon' })
+            }).addTo(map).bindPopup(`<b>${clinic.name}</b><br><small>${clinic.address}</small>`);
+            clinic.marker = m;
         });
+
+        // 3. GPS 定位功能
+        function locateUser() {
+            map.locate({setView: true, maxZoom: 16});
+        }
+        map.on('locationfound', function(e) {
+            L.circle(e.latlng, e.accuracy).addTo(map);
+            L.marker(e.latlng, {icon: L.divIcon({html: '📍', className:'custom-div-icon'})}).addTo(map).bindPopup("你喺呢度！").openPopup();
+        });
+        map.on('locationerror', function() { alert("無法取得你的位置，請確保已開啟 GPS 權限。"); });
+
+        // 4. 搜尋功能優化
+        function searchClinic() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const res = document.getElementById('searchResults');
+            res.innerHTML = '';
+            if(!q) { res.classList.add('hidden'); return; }
+
+            const filtered = clinics.filter(c => c.name.includes(q) || c.address.includes(q));
+            if(filtered.length > 0) {
+                res.classList.remove('hidden');
+                filtered.forEach(c => {
+                    const d = document.createElement('div');
+                    d.className = "p-4 border-b border-gray-100 active:bg-orange-50 flex justify-between items-center cursor-pointer";
+                    d.innerHTML = `<div><div class="font-bold text-orange-600">${c.name}</div><div class="text-xs text-gray-400">${c.address}</div></div><div class="text-xl">➔</div>`;
+                    d.onclick = () => {
+                        map.setView([c.lat, c.lng], 16);
+                        c.marker.openPopup();
+                        res.classList.add('hidden');
+                    };
+                    res.appendChild(d);
+                });
+            }
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('.section-part').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+            ['btn-map', 'btn-price', 'btn-deals'].forEach(b => document.getElementById(b).className = "py-4 px-4 font-bold text-gray-400");
+            document.getElementById('btn-' + id.split('-')[0]).className = "py-4 px-4 font-bold tab-active";
+            if(id === 'map-section') setTimeout(() => map.invalidateSize(), 300);
+        }
+
+        function checkPrice() {
+            const v = document.getElementById('serviceSelect').value;
+            const d = document.getElementById('priceDisplay');
+            if(v != "0") { d.classList.remove('hidden'); document.getElementById('priceValue').innerText = "HK$ " + v; }
+        }
     </script>
 </body>
 </html>
