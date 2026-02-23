@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PetPetDoc | 專業寵物醫療格價與地圖</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Noto Sans HK', sans-serif; background-color: #FFF9F2; }
+        .hero-gradient { background: linear-gradient(135deg, #FFB347 0%, #FFCC33 100%); }
+        #map { height: 450px; width: 100%; border-radius: 20px; z-index: 10; border: 4px solid white; }
+        .custom-div-icon { background: none; border: none; }
+        /* 手機端按鈕陰影優化 */
+        .btn-shadow { box-shadow: 0 4px 14px 0 rgba(251, 146, 60, 0.39); }
+    </style>
+</head>
+<body class="pb-10">
+
+    <nav class="sticky top-0 z-50 p-4 bg-white/80 backdrop-blur-md shadow-sm flex justify-between items-center px-6">
+        <div class="text-2xl font-bold text-orange-500 flex items-center">
+            <span class="text-3xl mr-2">🐾</span> PetPetDoc
+        </div>
+        <button class="bg-orange-500 text-white px-5 py-2 rounded-full font-bold text-sm btn-shadow">註冊</button>
+    </nav>
+
+    <header class="hero-gradient py-12 px-6 text-center text-white">
+        <h1 class="text-3xl md:text-5xl font-bold mb-4">幫主子搵到最好嘅 🐾</h1>
+        <p class="text-lg mb-8 opacity-90">全港 24hr 急症及醫療格價指南</p>
+        
+        <div class="max-w-xl mx-auto bg-white rounded-3xl p-5 shadow-xl text-gray-800">
+            <div class="flex flex-col gap-3">
+                <select id="serviceSelect" class="w-full p-4 border-2 border-orange-100 rounded-2xl focus:outline-none focus:border-orange-500 bg-white text-gray-700">
+                    <option value="0">🔍 選擇醫療服務格價...</option>
+                    <option value="280">年度入針 (5合1/7合1)</option>
+                    <option value="1200">貓咪絕育 (公)</option>
+                    <option value="1800">貓咪絕育 (乸)</option>
+                    <option value="2500">超聲波洗牙 (基本)</option>
+                    <option value="450">基本體檢 (Body Check)</option>
+                </select>
+                <button onclick="checkPrice()" class="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-orange-600 transition btn-shadow">
+                    查詢參考價
+                </button>
+            </div>
+            <div id="priceResult" class="mt-4 hidden p-4 bg-orange-50 rounded-2xl border border-orange-200 animate-pulse">
+                <p class="text-gray-500 text-sm">平均市價約：</p>
+                <p id="priceValue" class="text-3xl font-bold text-orange-600 mt-1"></p>
+            </div>
+        </div>
+    </header>
+
+    <section class="max-w-6xl mx-auto py-10 px-6">
+        <div class="flex justify-between items-end mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800">📍 診所分佈地圖</h2>
+                <p class="text-gray-500 text-sm">🚨 為急症/24小時 | 🏥 為一般診所</p>
+            </div>
+        </div>
+        
+        <div id="map" class="shadow-2xl"></div>
+    </section>
+
+    <footer class="max-w-6xl mx-auto px-6 mt-4">
+        <div class="bg-gray-100 p-6 rounded-3xl text-center">
+            <p class="text-gray-500 text-sm">想加入你的診所？請電郵至 hello@petpetdoc.hk</p>
+            <p class="text-xs text-gray-400 mt-4">© 2026 PetPetDoc HK. 專業・愛心・透明</p>
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // --- 格價功能 ---
+        function checkPrice() {
+            const price = document.getElementById('serviceSelect').value;
+            const resultDiv = document.getElementById('priceResult');
+            const priceText = document.getElementById('priceValue');
+            
+            if (price !== "0") {
+                priceText.innerText = "HK$ " + price;
+                resultDiv.classList.remove('hidden');
+                // 震動效果 (手機支援的話)
+                if (window.navigator.vibrate) window.navigator.vibrate(50);
+            } else {
+                alert("請先選擇服務項目呀！");
+            }
+        }
+
+        // --- 地圖邏輯 ---
+        var map = L.map('map').setView([22.3193, 114.1694], 11);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // 診所數據庫
+        const clinics = [
+            { name: "香港社企動物醫院", lat: 22.3238, lng: 114.1700, is24hr: true, address: "旺角水渠道44號" },
+            { name: "Paws & Tails 寵物醫院", lat: 22.2855, lng: 114.1473, is24hr: false, address: "上環普仁街4號" },
+            { name: "The Pet Vet", lat: 22.2769, lng: 114.1713, is24hr: false, address: "灣仔露亞道5號" },
+            { name: "港島獸醫診所", lat: 22.2690, lng: 114.1850, is24hr: false, address: "跑馬地成和道67號" },
+            { name: "維多利亞 24小時動物醫院", lat: 22.3031, lng: 114.1815, is24hr: true, address: "紅磡黃埔花園" },
+            { name: "康誠動物醫院", lat: 22.3650, lng: 114.1200, is24hr: false, address: "葵涌廣場附近" }
+        ];
+
+        // 根據屬性自動生成 Icon
+        clinics.forEach(clinic => {
+            const iconSymbol = clinic.is24hr ? "🚨" : "🏥";
+            const statusTag = clinic.is24hr ? 
+                `<span style="background:#fee2e2;color:#ef4444;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">24HR 急症</span>` : 
+                `<span style="background:#f0f9ff;color:#0ea5e9;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">一般門診</span>`;
+
+            var customIcon = L.divIcon({
+                html: `<div style="font-size: 28px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.1));">${iconSymbol}</div>`,
+                className: 'custom-div-icon',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            L.marker([clinic.lat, clinic.lng], { icon: customIcon })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="min-width:150px;">
+                        <div style="margin-bottom:5px;">${statusTag}</div>
+                        <h3 style="margin:0; font-size:14px; font-weight:bold;">${clinic.name}</h3>
+                        <p style="margin:5px 0; font-size:12px; color: #666;">📍 ${clinic.address}</p>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=${clinic.lat},${clinic.lng}" 
+                           target="_blank" 
+                           style="display:block; text-align:center; margin-top:8px; padding:8px; background:#f97316; color:white; border-radius:10px; text-decoration:none; font-size:12px; font-weight:bold;">
+                           導航去醫院
+                        </a>
+                    </div>
+                `);
+        });
+    </script>
+</body>
+</html>
